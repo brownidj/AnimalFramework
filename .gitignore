@@ -1,12 +1,46 @@
-import random
-from ui.text import set_footer, set_description, set_play_again, set_round_over
+# ---- Environment files ----
+.env
+.env.*
+!.env.example   # keep a template if you want to share expected vars
 
-def start_round(phone, rng):
-    # Reset UI elements using centralized helpers
-    set_footer(phone, "")
-    set_play_again(phone, False)
-    set_round_over(phone, False)
-    set_description(phone, "")
+# ---- macOS system files ----
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+*.icloud
 
-    # Additional logic for starting the round
-    # ... rest of the function ...
+# ---- Python bytecode / cache ----
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ---- Build artefacts ----
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# ---- Virtual environments ----
+.venv/
+venv/
+ENV/
+env/
+
+# ---- IDE settings (PyCharm/JetBrains) ----
+.idea/
+*.iml
+
+# ---- Logs ----
+*.log
+
+# ---- Coverage / test artefacts ----
+.coverage
+coverage.xml
+.pytest_cache/
+.tox/
+.mypy_cache/
