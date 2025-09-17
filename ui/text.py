@@ -34,7 +34,7 @@ def _update_labels(phone_frame) -> None:
 
 # --- Shared UI text (centralised) ---
 
-NOT_ENOUGH_CHANCES = "Not enough chances left to find all the animals"
+NOT_ENOUGH_CHANCES = "You don’t have enough chances left"
 
 # Shared headers and footer
 HEADER_WIN = "Congratulations!"
