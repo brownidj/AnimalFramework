@@ -1,7 +1,115 @@
+# ui/overlay.py
+"""Overlay layer for hover preview images.
+
+show_overlay_from_file(phone_frame, image_path, size=(540, 560))
+  - draws a full-size overlay over phone_frame.grid_frame (fallback to content)
+  - centers the provided image, resized to the given size
+
+hide_overlay(phone_frame)
+  - removes the overlay if present
+"""
+from __future__ import annotations
+import tkinter as tk
+from typing import Optional, Tuple
+from PIL import Image as PILImage, ImageTk as PILImageTk
+
+try:
+    from settings import SETTINGS  # theme colours
+    _BG = getattr(SETTINGS.THEME, "SURFACE", "#111827")
+except Exception:
+    _BG = "#111827"
+
+
+def _parent_for_overlay(phone_frame) -> tk.Widget:
+    # Prefer the grid frame to align exactly over the tiles; fallback to content/phone_frame
+    grid = getattr(phone_frame, "grid_frame", None)
+    if isinstance(grid, tk.Widget):
+        return grid
+    return getattr(phone_frame, "content", phone_frame)
+
+
+def _attach_image_ref(widget: tk.Widget, img) -> None:
+    """Ensure widget keeps strong refs to Tk PhotoImage(s)."""
+    try:
+        if not hasattr(widget, "image") or widget.image is None:
+            widget.image = img
+        if not hasattr(widget, "images") or widget.images is None:
+            widget.images = []
+        if img not in widget.images:
+            widget.images.append(img)
+    except Exception:
+        pass
+
+
+def show_overlay_from_file(phone_frame, image_path: str, size: Tuple[int, int] = (540, 560)) -> None:
+    """Render a full-size overlay over the grid area with the provided image path."""
+    parent = _parent_for_overlay(phone_frame)
+
+    # Create overlay frame if missing
+    overlay: Optional[tk.Frame] = getattr(phone_frame, "_overlay_frame", None)
+    if overlay is None or not isinstance(overlay, tk.Frame) or overlay.master is not parent:
+        overlay = tk.Frame(parent, bg=_BG)
+        overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
+        setattr(phone_frame, "_overlay_frame", overlay)
+
+    # Image label inside overlay
+    img_label: Optional[tk.Label] = getattr(phone_frame, "_overlay_image_label", None)
+    if img_label is None or not isinstance(img_label, tk.Label) or img_label.master is not overlay:
+        img_label = tk.Label(overlay, bd=0, highlightthickness=0, bg=_BG)
+        setattr(phone_frame, "_overlay_image_label", img_label)
+        img_label.place(relx=0.5, rely=0.5, anchor="center")
+
+    # Load and resize the image to exactly the grid size (may stretch to fit)
+    try:
+        pil_img = PILImage.open(image_path).convert("RGBA").resize(size, PILImage.Resampling.LANCZOS)
+        tk_img = PILImageTk.PhotoImage(pil_img)
+        img_label.config(image=tk_img)
+        _attach_image_ref(img_label, tk_img)
+    except Exception:
+        # On failure, hide any existing overlay to avoid a blank panel
+        hide_overlay(phone_frame)
+        return
+
+    try:
+        overlay.lift()
+    except Exception:
+        pass
+
+    setattr(phone_frame, "_overlay_active", True)
+
+
+def hide_overlay(phone_frame) -> None:
+    """Remove overlay elements if present and clear flags."""
+    overlay: Optional[tk.Frame] = getattr(phone_frame, "_overlay_frame", None)
+    img_label: Optional[tk.Label] = getattr(phone_frame, "_overlay_image_label", None)
+
+    try:
+        if img_label is not None:
+            img_label.place_forget()
+            img_label.destroy()
+    except Exception:
+        pass
+
+    try:
+        if overlay is not None:
+            overlay.place_forget()
+            overlay.destroy()
+    except Exception:
+        pass
+
+    try:
+        setattr(phone_frame, "_overlay_image_label", None)
+        setattr(phone_frame, "_overlay_frame", None)
+        setattr(phone_frame, "_overlay_active", False)
+    except Exception:
+        pass
+
+
 """Grid rendering and click handlers."""
 import os
 import tkinter as tk
 from PIL import Image, ImageTk
+from settings import SETTINGS
 
 from ui.theme import THEME
 from ui.images import _add_rounded_corners, _make_border_overlay
@@ -9,6 +117,7 @@ from ui.descriptions import _description_for
 from ui.text import _update_labels, set_text_if, end_round, HEADER_WIN, HEADER_LOSE
 from ui.widgets import _make_label, _container_of
 from ui.sounds import play_chime, play_error
+from ui.overlay import show_overlay_from_file, hide_overlay
 
 __all__ = [
     "resize_images",
@@ -25,6 +134,7 @@ def create_grid_frame(phone_frame):
     grid_frame = tk.Frame(container, bg=THEME["card"], width=540, height=560)
     grid_frame.pack_propagate(False)
     grid_frame.pack(padx=10, pady=(0, 10))
+    phone_frame.grid_frame = grid_frame
 
     # Description area below the grid
     desc_var = tk.StringVar(value="")
@@ -81,6 +191,32 @@ def display_images(grid_frame, resized_images, correct_images, random_letter):
             borderwidth=0,
             cursor="hand2",
         )
+
+        # Store original image path for overlay use
+        try:
+            tile._image_path = os.path.join(SETTINGS.PATHS.IMAGES, image_file)
+        except Exception:
+            tile._image_path = None
+
+        # Hover behaviour
+        try:
+            def _on_enter(_e, wf=grid_frame, ww=tile):
+                setattr(ww, "_hovering", True)
+                _schedule_hover_preview(wf, ww)
+            def _on_leave(_e, wf=grid_frame, ww=tile):
+                _cancel_hover_preview(wf, ww)
+                if getattr(wf, "_overlay_active", False):
+                    try:
+                        hide_overlay(wf)
+                    except Exception:
+                        pass
+                    finally:
+                        wf._overlay_active = False
+            tile.bind("<Enter>", _on_enter)
+            tile.bind("<Leave>", _on_leave)
+        except Exception:
+            pass
+
         tile.grid(row=idx // 3, column=idx % 3, padx=6, pady=6)
 
         # Base image (already rounded in resize_images)
@@ -171,6 +307,70 @@ def _apply_click_effects_and_counters(phone_frame, is_correct: bool):
         phone_frame.num_images_to_find -= 1
     # Refresh labels
     _update_labels(phone_frame)
+
+
+HOVER_PREVIEW_DELAY_MS = 3000  # 3 seconds
+
+
+def _schedule_hover_preview(phone_frame, widget):
+    try:
+        # Cancel any prior timer
+        timer_id = getattr(widget, "_hover_timer_id", None)
+        if timer_id is not None:
+            try:
+                phone_frame.after_cancel(timer_id)
+            except Exception:
+                pass
+        # Schedule new
+        def _fire():
+            if getattr(widget, "_hovering", False):
+                image_path = getattr(widget, "_image_path", None)
+                if image_path:
+                    show_overlay_from_file(phone_frame, image_path, size=(540, 560))
+                    phone_frame._overlay_active = True
+                    # Bind motion on the grid area to dismiss
+                    grid = getattr(phone_frame, "grid_frame", None) or getattr(phone_frame, "content", phone_frame)
+                    try:
+                        setattr(grid, "_phone_frame", phone_frame)
+                        grid.bind("<Motion>", _dismiss_overlay_on_motion)
+                    except Exception:
+                        pass
+        widget._hover_timer_id = phone_frame.after(HOVER_PREVIEW_DELAY_MS, _fire)
+    except Exception:
+        pass
+
+
+def _cancel_hover_preview(phone_frame, widget):
+    try:
+        setattr(widget, "_hovering", False)
+        timer_id = getattr(widget, "_hover_timer_id", None)
+        if timer_id is not None:
+            try:
+                phone_frame.after_cancel(timer_id)
+            except Exception:
+                pass
+            finally:
+                widget._hover_timer_id = None
+    except Exception:
+        pass
+
+
+def _dismiss_overlay_on_motion(event):
+    phone_frame = getattr(event.widget, "_phone_frame", None) or getattr(event.widget.master, "_phone_frame", None)
+    if phone_frame is None:
+        return
+    if getattr(phone_frame, "_overlay_active", False):
+        try:
+            hide_overlay(phone_frame)
+        except Exception:
+            pass
+        finally:
+            phone_frame._overlay_active = False
+            try:
+                grid = getattr(phone_frame, "grid_frame", None) or getattr(phone_frame, "content", phone_frame)
+                grid.unbind("<Motion>")
+            except Exception:
+                pass
 
 
 def _maybe_end_round(phone_frame):
