@@ -11,6 +11,8 @@ __all__ = [
     "setup_main_window",
     "create_phone_frame",
     "create_instruction_label",
+    "clear_content",
+    "create_grid_frame",
 ]
 
 
@@ -86,6 +88,25 @@ def create_phone_frame(root):
     phone_frame.round_over = False
 
     return phone_frame
+
+
+def clear_content(phone_frame):
+    """Remove all children from the content card. Layout-only (no behaviour)."""
+    content = getattr(phone_frame, "content", None)
+    if content is None:
+        return
+    for child in list(content.winfo_children()):
+        child.destroy()
+
+
+def create_grid_frame(phone_frame):
+    """Create and pack a container inside the content card for the image grid."""
+    content = getattr(phone_frame, "content", None)
+    if content is None:
+        return None
+    grid = tk.Frame(content, bg=THEME["card"])
+    grid.pack(expand=True)
+    return grid
 
 
 def create_instruction_label(phone_frame, random_letter, num_images_to_find):
