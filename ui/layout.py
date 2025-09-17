@@ -71,7 +71,12 @@ def create_phone_frame(root):
         cursor="arrow",
         command=lambda: getattr(phone_frame, "on_play_again", (lambda: None))(),
     )
-    play_again_btn.pack(side=tk.LEFT, padx=(6, 12))
+    play_again_btn.configure(
+        font=("Helvetica", 20, "bold"),
+        bg=THEME["surface"],
+        activebackground=THEME["surface"]
+    )
+    play_again_btn.pack(side=tk.LEFT, padx=(20, 12))
 
     exit_btn = tk.Button(
         buttons_frame,
@@ -79,7 +84,13 @@ def create_phone_frame(root):
         relief=tk.RIDGE,
         command=_exit_app,
     )
-    exit_btn.pack(side=tk.LEFT, padx=(12, 6))
+    exit_btn.configure(
+        font=("Helvetica", 20, "bold"),
+        bg=THEME["surface"],
+        activebackground=THEME["surface"],
+        cursor="hand2"
+    )
+    exit_btn.pack(side=tk.RIGHT, padx=(20, 6))
 
     # Save references for other modules
     phone_frame.footer_msg = footer_msg
