@@ -5,7 +5,7 @@ The remaining tiles are randomly chosen from images that do NOT begin with that 
 """
 import random
 
-from config import SETTINGS
+from settings import SETTINGS
 from game import choose_round, RoundState
 from ui import (
     setup_main_window,
