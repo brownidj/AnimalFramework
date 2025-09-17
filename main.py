@@ -15,8 +15,9 @@ from ui import (
     display_images,
     resize_images,
 )
-
 from ui.sounds import reset_chime_counter
+from ui.helpers import set_text, enable, clear_description
+
 
 
 def clear_content_area(phone):
@@ -43,19 +44,10 @@ def start_round(phone, rng):
     # Clear prior content (grid + headers inside the content card)
     clear_content_area(phone)
 
-    # Reset footer + flags
-    if hasattr(phone, "footer_msg"):
-        phone.footer_msg.config(text="")
-    if hasattr(phone, "play_again_btn"):
-        phone.play_again_btn.config(state="disabled", cursor="arrow")
+    set_text(getattr(phone, "footer_msg", None), "")
+    enable(getattr(phone, "play_again_btn", None), False)
     setattr(phone, "round_over", False)
-
-    # Clear description text if present
-    if hasattr(phone, "description_var"):
-        try:
-            phone.description_var.set("")
-        except Exception:
-            pass
+    clear_description(getattr(phone, "description_var", None))
 
     # Reset chime sequence
     reset_chime_counter()
@@ -75,7 +67,6 @@ def start_round(phone, rng):
 
     tk_images = resize_images(SETTINGS.PATHS.IMAGES, state.selected)
     display_images(grid, tk_images, state.correct, state.letter)
-
 
 def main():
     rng = random.Random(SETTINGS.DEBUG.RANDOM_SEED) if SETTINGS.DEBUG.RANDOM_SEED is not None else random.Random()

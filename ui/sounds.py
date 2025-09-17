@@ -33,11 +33,19 @@ try:
 except Exception:
     sa = None  # type: ignore
 
-# Debug toggle via env var: SOUND_DEBUG=1
-SOUND_DEBUG = str(os.getenv("SOUND_DEBUG", "0")).lower() in {"1", "true", "yes", "on"}
+# Debug toggle via functions
+SOUND_VERBOSE = False
+
+def enable_debug():
+    global SOUND_VERBOSE
+    SOUND_VERBOSE = True
+
+def disable_debug():
+    global SOUND_VERBOSE
+    SOUND_VERBOSE = False
 
 def _dbg(msg: str) -> None:
-    if SOUND_DEBUG:
+    if SOUND_VERBOSE:
         print(f"[ui.sounds][debug] {msg}")
 
 _click_count = 0
@@ -191,6 +199,7 @@ def test_sound_sequence(
 
 
 if __name__ == "__main__":  # Manual CLI audition: python -m ui.sounds [mode] [n] [interval]
+    enable_debug()
     if not _np_available():
         print("[ui.sounds] NumPy unavailable (install: pip install numpy; simpleaudio optional)")
         sys.exit(0)
